@@ -2,6 +2,8 @@
 
 #include <string>
 #include <print>
+#include <ranges>
+
 #include <cxxopts.hpp>
 
 #define default_confidence 90
@@ -13,15 +15,18 @@
 struct Args
 {
     int confidence{};
-    std::string img;
+    std::vector<std::string> images;
     std::string lang;
     std::string tessdata;
     std::string font;
 
     void print() const
     {
+        for (const auto &[i, image] : std::ranges::views::enumerate(images))
+        {
+            std::println("image[{}]: {}", i, image);
+        }
         std::println("confidence: {}", confidence);
-        std::println("img: {}", img);
         std::println("lang: {}", lang);
         std::println("tessdata: {}", tessdata);
         std::println("font: {}", font);
@@ -33,17 +38,19 @@ struct Args
         options.allow_unrecognised_options();
         auto opts_adder = options.add_options();
         Args args;
-        opts_adder("c,confidence", "Confidence", cxxopts::value<int>()->default_value(std::to_string(default_confidence)));
-        opts_adder("i,image", "Image path", cxxopts::value<std::string>()->default_value(default_img));
-        opts_adder("l,lang", "Language", cxxopts::value<std::string>()->default_value(default_lang));
+        opts_adder("i,images", "Image paths", cxxopts::value<std::vector<std::string>>());
+
         opts_adder("t,tessdata", "Tessdata path", cxxopts::value<std::string>()->default_value(default_tessdata));
+        opts_adder("l,lang", "Language", cxxopts::value<std::string>()->default_value(default_lang));
+
         opts_adder("f,font", "Font path", cxxopts::value<std::string>()->default_value(default_font));
+        opts_adder("c,confidence", "Confidence", cxxopts::value<int>()->default_value(std::to_string(default_confidence)));
 
         const auto result = options.parse(argc, argv);
 
         args.tessdata = result["tessdata"].as<std::string>();
         args.lang = result["lang"].as<std::string>();
-        args.img = result["image"].as<std::string>();
+        args.images = result["images"].as<std::vector<std::string>>();
         args.confidence = result["confidence"].as<int>();
         args.font = result["font"].as<std::string>();
 

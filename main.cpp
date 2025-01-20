@@ -70,106 +70,113 @@ void ocr_recognise(const Args &args,
                                       const Args &args)>
                        callback)
 {
-    Debugger debugger(args);
-    fixed_debugger::Debugger fixed_debugger(args);
-    auto api = std::make_unique<TessBaseAPI>();
-    if (api->Init(args.tessdata.c_str(), args.lang.c_str()))
+    for (const auto &image_path : args.images)
     {
-        std::println(stderr, "Could not initialize tesseract.");
-        return;
-    }
-    auto image = std::shared_ptr<Pix>(pixRead(args.img.c_str()), [](Pix *p)
-                                      { pixDestroy(&p); });
-
-    // 获取图像的宽度和高度
-    l_int32 width, height, depth;
-    if (pixGetDimensions(image.get(), &width, &height, &depth))
-    {
-        std::println(stderr, "Could not get image dimensions.");
-        return;
-    }
-    std::println("width: {}, height: {}, depth: {}", width, height, depth);
-
-    // 获取图像分辨率
-    l_int32 xres, yres;
-    if (pixGetResolution(image.get(), &xres, &yres))
-    {
-        std::println(stderr, "Could not get image resolution.");
-        return;
-    }
-    std::println("xres: {}, yres: {}", xres, yres);
-
-    api->SetImage(image.get());
-
-    // 设置图像分辨率
-    l_int32 xres_new = 300, yres_new = 300;
-    if (pixSetResolution(image.get(), xres_new, yres_new))
-    {
-        std::println(stderr, "Could not set image resolution.");
-        return;
-    }
-    std::println("xres: {} -> {}, yres: {} -> {}", xres, xres_new, yres, yres_new);
-
-    if (pixGetDimensions(image.get(), &width, &height, &depth))
-    {
-        std::println(stderr, "Could not get image dimensions.");
-        return;
-    }
-    std::println("width: {}, height: {}, depth: {}", width, height, depth);
-
-    if (api->Recognize(nullptr))
-    {
-        std::println(stderr, "Recognize failed");
-        return;
-    }
-
-    auto res_it = std::shared_ptr<tesseract::ResultIterator>(api->GetIterator());
-
-    while (!res_it->Empty(tesseract::RIL_TEXTLINE))
-    {
-        if (res_it->Empty(tesseract::RIL_WORD))
+        Debugger debugger(args);
+        fixed_debugger::Debugger fixed_debugger(args);
+        debugger.set_image(image_path);
+        fixed_debugger.set_image(image_path);
+        auto api = std::make_unique<TessBaseAPI>();
+        if (api->Init(args.tessdata.c_str(), args.lang.c_str()))
         {
-            res_it->Next(tesseract::RIL_WORD);
-            continue;
+            std::println(stderr, "Could not initialize tesseract.");
+            return;
+        }
+        auto image = std::shared_ptr<Pix>(pixRead(image_path.c_str()), [](Pix *p)
+                                          { pixDestroy(&p); });
+
+        // 获取图像的宽度和高度
+        l_int32 width, height, depth;
+        if (pixGetDimensions(image.get(), &width, &height, &depth))
+        {
+            std::println(stderr, "Could not get image dimensions.");
+            return;
+        }
+        std::println("width: {}, height: {}, depth: {}", width, height, depth);
+
+        // 获取图像分辨率
+        l_int32 xres, yres;
+        if (pixGetResolution(image.get(), &xres, &yres))
+        {
+            std::println(stderr, "Could not get image resolution.");
+            return;
+        }
+        std::println("xres: {}, yres: {}", xres, yres);
+
+        api->SetImage(image.get());
+
+        // 设置图像分辨率
+        l_int32 xres_new = 300, yres_new = 300;
+        if (pixSetResolution(image.get(), xres_new, yres_new))
+        {
+            std::println(stderr, "Could not set image resolution.");
+            return;
+        }
+        std::println("xres: {} -> {}, yres: {} -> {}", xres, xres_new, yres, yres_new);
+
+        if (pixGetDimensions(image.get(), &width, &height, &depth))
+        {
+            std::println(stderr, "Could not get image dimensions.");
+            return;
+        }
+        std::println("width: {}, height: {}, depth: {}", width, height, depth);
+
+        if (api->Recognize(nullptr))
+        {
+            std::println(stderr, "Recognize failed");
+            return;
         }
 
-        Rect line_bbox, word_bbox;
-        int line_conf, word_conf;
-        res_it->BoundingBox(tesseract::RIL_TEXTLINE, &line_bbox.left, &line_bbox.top, &line_bbox.right, &line_bbox.bottom);
-        res_it->BoundingBox(tesseract::RIL_WORD, &word_bbox.left, &word_bbox.top, &word_bbox.right, &word_bbox.bottom);
-        line_conf = res_it->Confidence(tesseract::RIL_TEXTLINE);
-        word_conf = res_it->Confidence(tesseract::RIL_WORD);
+        auto res_it = std::shared_ptr<tesseract::ResultIterator>(api->GetIterator());
 
-        debugger.on_line(line_bbox);
-        debugger.on_word(word_bbox);
-        std::println("line {} conf: {}", line_bbox.to_string(), line_conf);
-        std::println("word {} conf: {}", word_bbox.to_string(), word_conf);
-
-        do
+        while (!res_it->Empty(tesseract::RIL_TEXTLINE))
         {
-            Rect char_bbox;
-            res_it->BoundingBox(tesseract::RIL_SYMBOL, &char_bbox.left, &char_bbox.top, &char_bbox.right, &char_bbox.bottom);
-            auto conf = res_it->Confidence(tesseract::RIL_SYMBOL);
-            auto text = std::shared_ptr<char>(res_it->GetUTF8Text(tesseract::RIL_SYMBOL));
-            bool bold, italic, underline, monospace, serif, smallcaps;
-            int size, font_id;
+            if (res_it->Empty(tesseract::RIL_WORD))
+            {
+                res_it->Next(tesseract::RIL_WORD);
+                continue;
+            }
 
-            auto font_name = res_it->WordFontAttributes(&bold, &italic, &underline, &monospace, &serif, &smallcaps, &size, &font_id);
+            Rect line_bbox, word_bbox;
+            int line_conf, word_conf;
+            res_it->BoundingBox(tesseract::RIL_TEXTLINE, &line_bbox.left, &line_bbox.top, &line_bbox.right, &line_bbox.bottom);
+            res_it->BoundingBox(tesseract::RIL_WORD, &word_bbox.left, &word_bbox.top, &word_bbox.right, &word_bbox.bottom);
+            line_conf = res_it->Confidence(tesseract::RIL_TEXTLINE);
+            word_conf = res_it->Confidence(tesseract::RIL_WORD);
 
-            char_bbox.right = std::min(char_bbox.right, char_bbox.left + (int)(size * 1.5));
+            debugger.on_line(line_bbox);
+            debugger.on_word(word_bbox);
+            std::println("line {} conf: {}", line_bbox.to_string(), line_conf);
+            std::println("word {} conf: {}", word_bbox.to_string(), word_conf);
 
-            std::println("{} char {} conf: {} size: {}", text.get(), char_bbox.to_string(), conf, size);
+            do
+            {
+                Rect char_bbox;
+                res_it->BoundingBox(tesseract::RIL_SYMBOL, &char_bbox.left, &char_bbox.top, &char_bbox.right, &char_bbox.bottom);
+                auto conf = res_it->Confidence(tesseract::RIL_SYMBOL);
+                auto text = std::shared_ptr<char>(res_it->GetUTF8Text(tesseract::RIL_SYMBOL));
+                bool bold, italic, underline, monospace, serif, smallcaps;
+                int size, font_id;
 
-            callback(std::string(text.get()), conf, font_name ? std::string(font_name) : std::string(), line_bbox, word_bbox, char_bbox, size, args);
+                auto font_name = res_it->WordFontAttributes(&bold, &italic, &underline, &monospace, &serif, &smallcaps, &size, &font_id);
 
-            debugger.on_char(char_bbox, std::string(text.get()), size);
-            fixed_debugger.on_char(line_bbox, word_bbox, char_bbox, std::string(text.get()), size);
+                // char_bbox.right = std::min(char_bbox.right, char_bbox.left + (int)(size * 1.5));
+                if (conf > args.confidence)
+                {
+                    std::println("{} char {} conf: {} size: {}", text.get(), char_bbox.to_string(), conf, size);
 
-            res_it->Next(tesseract::RIL_SYMBOL);
-        } while (!res_it->Empty(tesseract::RIL_BLOCK) && !res_it->IsAtBeginningOf(tesseract::RIL_WORD));
+                    callback(std::string(text.get()), conf, font_name ? std::string(font_name) : std::string(), line_bbox, word_bbox, char_bbox, size, args);
+
+                    debugger.on_char(char_bbox, std::string(text.get()), size);
+                    fixed_debugger.on_char(line_bbox, word_bbox, char_bbox, std::string(text.get()), size);
+                }
+
+                res_it->Next(tesseract::RIL_SYMBOL);
+            } while (!res_it->Empty(tesseract::RIL_BLOCK) && !res_it->IsAtBeginningOf(tesseract::RIL_WORD));
+        }
+
+        pixWrite(std::format("{}.ori.png", std::filesystem::path(image_path).filename().string()).c_str(), image.get(), IFF_PNG);
     }
-
-    pixWrite(std::format("{}.ori.png", std::filesystem::path(args.img).filename().string()).c_str(), image.get(), IFF_PNG);
 }
 
 int main(int argc, char **argv)

@@ -20,14 +20,14 @@
 #include <opencv4/opencv2/imgcodecs.hpp>
 #include <opencv4/opencv2/freetype.hpp>
 
-#define CV_COLOR_RED cv::Scalar(0, 0, 255, 255)
-#define CV_COLOR_GREEN cv::Scalar(0, 255, 0, 255)
-#define CV_COLOR_BLUE cv::Scalar(255, 0, 0, 255)
-#define CV_COLOR_YELLOW cv::Scalar(0, 255, 255, 255)
-#define CV_COLOR_PURPLE cv::Scalar(255, 0, 255, 255)
-#define CV_COLOR_CYAN cv::Scalar(255, 255, 0, 255)
-#define CV_COLOR_WHITE cv::Scalar(255, 255, 255, 255)
-#define CV_COLOR_BLACK cv::Scalar(0, 0, 0, 255)
+#define CV_COLOR_RED cv::Scalar(0, 0, 255)
+#define CV_COLOR_GREEN cv::Scalar(0, 255, 0)
+#define CV_COLOR_BLUE cv::Scalar(255, 0, 0)
+#define CV_COLOR_YELLOW cv::Scalar(0, 255, 255)
+#define CV_COLOR_PURPLE cv::Scalar(255, 0, 255)
+#define CV_COLOR_CYAN cv::Scalar(255, 255, 0)
+#define CV_COLOR_WHITE cv::Scalar(255, 255, 255)
+#define CV_COLOR_BLACK cv::Scalar(0, 0, 0)
 
 struct CharInfo
 {
@@ -55,26 +55,18 @@ namespace std
 
 class Debugger
 {
-
 public:
     Debugger(const Args &args) : m_args(args)
     {
-        auto image = std::shared_ptr<Pix>(pixRead(args.img.c_str()), [](Pix *p)
-                                          { pixDestroy(&p); });
-
-        // 获取图像的宽度和高度
-        l_int32 width, height, depth;
-        if (pixGetDimensions(image.get(), &width, &height, &depth))
-        {
-            std::println(stderr, "Could not get image dimensions.");
-            return;
-        }
-        std::println("width: {}, height: {}, depth: {}", width, height, depth);
-
-        m_bitmap = cv::Mat(height, width, CV_8UC4, cv::Scalar(255, 255, 255, 255));
-
         m_ft2 = cv::freetype::createFreeType2();
         m_ft2->loadFontData(m_args.font, 0);
+    }
+
+    void set_image(const std::string &image_path)
+    {
+        m_image_path = image_path;
+        m_bitmap = cv::imread(image_path, cv::IMREAD_COLOR);
+        m_bitmap = cv::Scalar(255, 255, 255);
     }
 
     ~Debugger()
@@ -125,11 +117,12 @@ public:
         m_line_bboxes.clear();
         m_word_bboxes.clear();
         m_chars.clear();
-        cv::imwrite(std::format("{}.dbg.png", std::filesystem::path(m_args.img).filename().string()).c_str(), m_bitmap);
+        cv::imwrite(std::format("{}.dbg.png", std::filesystem::path(m_image_path).filename().string()).c_str(), m_bitmap);
     }
 
 private:
     Args m_args;
+    std::string m_image_path;
     cv::Ptr<cv::freetype::FreeType2> m_ft2;
     cv::Mat m_bitmap;
     std::unordered_set<Rect> m_line_bboxes;
