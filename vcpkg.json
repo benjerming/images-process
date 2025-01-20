@@ -2,7 +2,8 @@
     "name": "main",
     "version": "5.0.0",
     "dependencies": [
+        "freetype",
         "tesseract",
         "cxxopts"
-    ]   
+    ]
 }

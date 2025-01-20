@@ -1,80 +1,22 @@
+#include "args.h"
+#include "common.h"
+#include "debugger.h"
 #include <print>
 
 #include <tesseract/capi.h>
 #include <leptonica/allheaders.h>
 #include <cassert>
 #include <cxxopts.hpp>
+#include <ft2build.h>
+#include FT_FREETYPE_H
+#include <opencv4/opencv2/opencv.hpp>
+#include <opencv4/opencv2/imgproc.hpp>
+#include <opencv4/opencv2/imgcodecs.hpp>
 
 using namespace tesseract;
 using namespace std;
 using namespace cxxopts;
 using namespace std::string_literals;
-
-struct Args
-{
-    int confidence{};
-    string img;
-    string lang;
-    string tessdata;
-};
-
-const auto default_confidence = 90;
-const auto default_img = "/home/atlas/PDF2Word_libs/build/Rect(71.69999694824219, 208.49996948242188, 528.9500122070312, 505.8499755859375)_py.png";
-const auto default_lang = "chi_sim";
-const auto default_tessdata = "/home/atlas/Downloads/tessdata";
-
-void print_args(const Args &args)
-{
-    println("confidence: {}", args.confidence);
-    println("img: {}", args.img);
-    println("lang: {}", args.lang);
-    println("tessdata: {}", args.tessdata);
-}
-
-struct Rect
-{
-    int left{};
-    int top{};
-    int right{};
-    int bottom{};
-
-    static Rect from_array(const array<int, 4> &arr)
-    {
-        return {arr[0], arr[1], arr[2], arr[3]};
-    }
-
-    constexpr auto to_string() const
-    {
-        return format("Rect({}, {}, {}, {})", left, top, right, bottom);
-    }
-
-    array<int, 4> to_array() const
-    {
-        return {left, top, right, bottom};
-    }
-
-    bool operator==(const Rect &other) const
-    {
-        return left == other.left && top == other.top && right == other.right && bottom == other.bottom;
-    }
-
-    int &operator[](int index)
-    {
-        switch (index)
-        {
-        case 0:
-            return left;
-        case 1:
-            return top;
-        case 2:
-            return right;
-        case 3:
-            return bottom;
-        default:
-            throw std::out_of_range("Index out of range");
-        }
-    }
-};
 
 static void
 char_callback(const string &text,
@@ -138,6 +80,7 @@ void ocr_recognise(const Args &args,
                                       const Args &args)>
                        callback)
 {
+    Debugger debugger(args);
     auto api = make_unique<TessBaseAPI>();
     if (api->Init(args.tessdata.c_str(), args.lang.c_str()))
     {
@@ -176,6 +119,13 @@ void ocr_recognise(const Args &args,
     }
     println("xres: {} -> {}, yres: {} -> {}", xres, xres_new, yres, yres_new);
 
+    if (pixGetDimensions(image.get(), &width, &height, &depth))
+    {
+        println(stderr, "Could not get image dimensions.");
+        return;
+    }
+    println("width: {}, height: {}, depth: {}", width, height, depth);
+
     if (api->Recognize(nullptr))
     {
         println(stderr, "Recognize failed");
@@ -184,7 +134,7 @@ void ocr_recognise(const Args &args,
 
     auto res_it = shared_ptr<ResultIterator>(api->GetIterator());
 
-    while (!res_it->Empty(RIL_BLOCK))
+    while (!res_it->Empty(RIL_TEXTLINE))
     {
         if (res_it->Empty(RIL_WORD))
         {
@@ -199,6 +149,8 @@ void ocr_recognise(const Args &args,
         line_conf = res_it->Confidence(RIL_TEXTLINE);
         word_conf = res_it->Confidence(RIL_WORD);
 
+        debugger.on_line(line_bbox);
+        debugger.on_word(word_bbox);
         println("line {} conf: {}", line_bbox.to_string(), line_conf);
         println("word {} conf: {}", word_bbox.to_string(), word_conf);
 
@@ -219,9 +171,13 @@ void ocr_recognise(const Args &args,
 
             callback(string(text.get()), conf, font_name ? string(font_name) : string(), line_bbox, word_bbox, char_bbox, size, args);
 
+            debugger.on_char(char_bbox, string(text.get()));
+
             res_it->Next(RIL_SYMBOL);
         } while (!res_it->Empty(RIL_BLOCK) && !res_it->IsAtBeginningOf(RIL_WORD));
     }
+
+    pixWrite(std::format("{}.ori.png", std::filesystem::path(args.img).filename().string()).c_str(), image.get(), IFF_PNG);
 }
 
 Args parse_args(int argc, char **argv)
@@ -248,7 +204,7 @@ Args parse_args(int argc, char **argv)
 int main(int argc, char **argv)
 {
     const auto args = parse_args(argc, argv);
-    print_args(args);
+    args.print();
 
     ocr_recognise(args, char_callback);
 
