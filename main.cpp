@@ -19,9 +19,9 @@ struct Args
 };
 
 const auto default_confidence = 90;
-const auto default_img = "/home/atlas/PDF2Word_libs/build/Rect(71.69999694824219, 208.49996948242188, 528.9500122070312, 505.8499755859375)_py.png"s;
-const auto default_lang = "chi_sim"s;
-const auto default_tessdata = "/home/atlas/Downloads/tessdata"s;
+const auto default_img = "/home/atlas/PDF2Word_libs/build/Rect(71.69999694824219, 208.49996948242188, 528.9500122070312, 505.8499755859375)_py.png";
+const auto default_lang = "chi_sim";
+const auto default_tessdata = "/home/atlas/Downloads/tessdata";
 
 void print_args(const Args &args)
 {
@@ -217,7 +217,7 @@ void ocr_recognise(const Args &args,
 
             println("{} char {} conf: {} size: {}", text.get(), char_bbox.to_string(), conf, size);
 
-            callback(string(text.get()), conf, font_name, line_bbox, word_bbox, char_bbox, size, args);
+            callback(string(text.get()), conf, font_name ? string(font_name) : string(), line_bbox, word_bbox, char_bbox, size, args);
 
             res_it->Next(RIL_SYMBOL);
         } while (!res_it->Empty(RIL_BLOCK) && !res_it->IsAtBeginningOf(RIL_WORD));
@@ -249,8 +249,6 @@ int main(int argc, char **argv)
 {
     const auto args = parse_args(argc, argv);
     print_args(args);
-
-    return 0;
 
     ocr_recognise(args, char_callback);
 
