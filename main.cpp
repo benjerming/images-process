@@ -19,7 +19,7 @@ char_callback(const std::string &text,
 {
     if (confidence < args.confidence)
     {
-        println("ocr_recognise char:{}, confidence:{}, ignored\n", text, confidence);
+        std::println("ocr_recognise char:{}, confidence:{}, ignored\n", text, confidence);
         return;
     }
 
