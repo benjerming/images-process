@@ -160,7 +160,7 @@ void ocr_recognise(const Args &args,
 
             callback(std::string(text.get()), conf, font_name ? std::string(font_name) : std::string(), line_bbox, word_bbox, char_bbox, size, args);
 
-            debugger.on_char(char_bbox, std::string(text.get()));
+            debugger.on_char(char_bbox, std::string(text.get()), size);
 
             res_it->Next(tesseract::RIL_SYMBOL);
         } while (!res_it->Empty(tesseract::RIL_BLOCK) && !res_it->IsAtBeginningOf(tesseract::RIL_WORD));

@@ -18,26 +18,47 @@
 #include <opencv4/opencv2/opencv.hpp>
 #include <opencv4/opencv2/imgproc.hpp>
 #include <opencv4/opencv2/imgcodecs.hpp>
+#include <opencv4/opencv2/freetype.hpp>
 
-#define CV_COLOR_RED cv::Scalar(0, 0, 255)
-#define CV_COLOR_GREEN cv::Scalar(0, 255, 0)
-#define CV_COLOR_BLUE cv::Scalar(255, 0, 0)
-#define CV_COLOR_YELLOW cv::Scalar(0, 255, 255)
-#define CV_COLOR_PURPLE cv::Scalar(255, 0, 255)
-#define CV_COLOR_CYAN cv::Scalar(255, 255, 0)
-#define CV_COLOR_WHITE cv::Scalar(255, 255, 255)
-#define CV_COLOR_BLACK cv::Scalar(0, 0, 0)
+#define CV_COLOR_RED cv::Scalar(0, 0, 255, 255)
+#define CV_COLOR_GREEN cv::Scalar(0, 255, 0, 255)
+#define CV_COLOR_BLUE cv::Scalar(255, 0, 0, 255)
+#define CV_COLOR_YELLOW cv::Scalar(0, 255, 255, 255)
+#define CV_COLOR_PURPLE cv::Scalar(255, 0, 255, 255)
+#define CV_COLOR_CYAN cv::Scalar(255, 255, 0, 255)
+#define CV_COLOR_WHITE cv::Scalar(255, 255, 255, 255)
+#define CV_COLOR_BLACK cv::Scalar(0, 0, 0, 255)
+
+struct CharInfo
+{
+    std::string text;
+    Rect bbox;
+    int pointsize;
+
+    bool operator==(const CharInfo &other) const
+    {
+        return text == other.text && bbox == other.bbox && pointsize == other.pointsize;
+    }
+};
+
+namespace std
+{
+    template <>
+    struct hash<CharInfo>
+    {
+        size_t operator()(const CharInfo &info) const
+        {
+            return std::hash<std::string>()(info.text);
+        }
+    };
+}
 
 class Debugger
 {
+
 public:
     Debugger(const Args &args) : m_args(args)
     {
-        // 初始化 FreeType
-        FT_Init_FreeType(&m_ft_library);
-        // 加载字体
-        FT_New_Face(m_ft_library, args.font.c_str(), 0, &m_face);
-
         auto image = std::shared_ptr<Pix>(pixRead(args.img.c_str()), [](Pix *p)
                                           { pixDestroy(&p); });
 
@@ -50,14 +71,15 @@ public:
         }
         std::println("width: {}, height: {}, depth: {}", width, height, depth);
 
-        m_bitmap = cv::Mat(height, width, CV_8UC3, cv::Scalar(255, 255, 255));
+        m_bitmap = cv::Mat(height, width, CV_8UC4, cv::Scalar(255, 255, 255, 255));
+
+        m_ft2 = cv::freetype::createFreeType2();
+        m_ft2->loadFontData(m_args.font, 0);
     }
 
     ~Debugger()
     {
         flush();
-        FT_Done_Face(m_face);
-        FT_Done_FreeType(m_ft_library);
     }
 
     void on_line(const Rect &line_bbox)
@@ -70,36 +92,16 @@ public:
         m_word_bboxes.insert(word_bbox);
     }
 
-    void on_char(const Rect &char_bbox, const std::string &text)
+    void on_char(const Rect &char_bbox, const std::string &text, int pointsize)
     {
-        m_char_bboxes.insert(char_bbox);
+        m_chars.insert(CharInfo{text, char_bbox, pointsize});
     }
 
     void putChineseText(const std::string &text, Rect rect, cv::Scalar color)
     {
-        // 设置字体大小
-        FT_Set_Pixel_Sizes(m_face, rect.width(), rect.height());
-
-        unsigned int baseline = 0;
-        for (int i = 0; i < text.size(); ++i)
-        {
-            // 加载字符
-            if (FT_Load_Char(m_face, text[i], FT_LOAD_RENDER))
-            {
-                continue;
-            }
-            FT_GlyphSlot g = m_face->glyph;
-
-            // 计算位置
-            cv::Mat bitmap(g->bitmap.rows, g->bitmap.width, CV_8UC1, g->bitmap.buffer);
-            cv::Mat roi = m_bitmap(cv::Rect(rect.left + g->bitmap_left, rect.top - g->bitmap_top, g->bitmap.width, g->bitmap.rows));
-            double opacity = 1.0;
-            cv::addWeighted(roi, 1.0 - opacity, bitmap, opacity, 0.0, roi);
-
-            // 更新下一个字的位置
-            rect.left += g->advance.x >> 6;
-            baseline = std::max(baseline, g->bitmap.rows - g->bitmap_top);
-        }
+        int baseline = 0;
+        m_ft2->getTextSize(text, rect.height(), -1, &baseline);
+        m_ft2->putText(m_bitmap, text, cv::Point(rect.left, rect.top + baseline), rect.height(), color, -1, cv::LINE_AA, false);
     }
 
     void flush()
@@ -114,23 +116,23 @@ public:
             println("word bbox: {}", word_bbox.to_string());
             cv::rectangle(m_bitmap, cv::Point(word_bbox.left, word_bbox.top), cv::Point(word_bbox.right, word_bbox.bottom), CV_COLOR_GREEN, 1, cv::LINE_AA, 0);
         }
-        for (const auto &char_bbox : m_char_bboxes)
+        for (const auto &char_info : m_chars)
         {
-            println("char bbox: {}", char_bbox.to_string());
-            cv::rectangle(m_bitmap, cv::Point(char_bbox.left, char_bbox.top), cv::Point(char_bbox.right, char_bbox.bottom), CV_COLOR_RED, 1, cv::LINE_AA, 0);
+            println("char bbox: {}", char_info.bbox.to_string());
+            putChineseText(char_info.text, char_info.bbox, CV_COLOR_BLACK);
+            cv::rectangle(m_bitmap, cv::Point(char_info.bbox.left, char_info.bbox.top), cv::Point(char_info.bbox.right, char_info.bbox.bottom), CV_COLOR_RED, 1, cv::LINE_AA, 0);
         }
         m_line_bboxes.clear();
         m_word_bboxes.clear();
-        m_char_bboxes.clear();
+        m_chars.clear();
         cv::imwrite(std::format("{}.dbg.png", std::filesystem::path(m_args.img).filename().string()).c_str(), m_bitmap);
     }
 
 private:
     Args m_args;
-    FT_Library m_ft_library;
-    FT_Face m_face;
+    cv::Ptr<cv::freetype::FreeType2> m_ft2;
     cv::Mat m_bitmap;
     std::unordered_set<Rect> m_line_bboxes;
     std::unordered_set<Rect> m_word_bboxes;
-    std::unordered_set<Rect> m_char_bboxes;
+    std::unordered_set<CharInfo> m_chars;
 };

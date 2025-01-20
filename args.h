@@ -37,6 +37,7 @@ struct Args
         opts_adder("i,image", "Image path", cxxopts::value<std::string>()->default_value(default_img));
         opts_adder("l,lang", "Language", cxxopts::value<std::string>()->default_value(default_lang));
         opts_adder("t,tessdata", "Tessdata path", cxxopts::value<std::string>()->default_value(default_tessdata));
+        opts_adder("f,font", "Font path", cxxopts::value<std::string>()->default_value(default_font));
 
         const auto result = options.parse(argc, argv);
 
@@ -44,6 +45,7 @@ struct Args
         args.lang = result["lang"].as<std::string>();
         args.img = result["image"].as<std::string>();
         args.confidence = result["confidence"].as<int>();
+        args.font = result["font"].as<std::string>();
 
         return args;
     }
