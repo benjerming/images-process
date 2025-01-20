@@ -5,13 +5,6 @@
 
 #include <tesseract/capi.h>
 #include <leptonica/allheaders.h>
-#include <cassert>
-#include <cxxopts.hpp>
-#include <ft2build.h>
-#include FT_FREETYPE_H
-#include <opencv4/opencv2/opencv.hpp>
-#include <opencv4/opencv2/imgproc.hpp>
-#include <opencv4/opencv2/imgcodecs.hpp>
 
 using namespace tesseract;
 using namespace std;
@@ -180,30 +173,9 @@ void ocr_recognise(const Args &args,
     pixWrite(std::format("{}.ori.png", std::filesystem::path(args.img).filename().string()).c_str(), image.get(), IFF_PNG);
 }
 
-Args parse_args(int argc, char **argv)
-{
-    cxxopts::Options options("main", "Tesseract OCR");
-    options.allow_unrecognised_options();
-    auto opts_adder = options.add_options();
-    Args args;
-    opts_adder("c,confidence", "Confidence", value<int>()->default_value(to_string(default_confidence)));
-    opts_adder("i,image", "Image path", value<string>()->default_value(default_img));
-    opts_adder("l,lang", "Language", value<string>()->default_value(default_lang));
-    opts_adder("t,tessdata", "Tessdata path", value<string>()->default_value(default_tessdata));
-
-    const auto result = options.parse(argc, argv);
-
-    args.tessdata = result["tessdata"].as<string>();
-    args.lang = result["lang"].as<string>();
-    args.img = result["image"].as<string>();
-    args.confidence = result["confidence"].as<int>();
-
-    return args;
-}
-
 int main(int argc, char **argv)
 {
-    const auto args = parse_args(argc, argv);
+    const auto args = Args::from_args(argc, argv);
     args.print();
 
     ocr_recognise(args, char_callback);
