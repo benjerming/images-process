@@ -179,12 +179,113 @@ void ocr_recognise(const Args &args,
     }
 }
 
+void findConnectedComponents(const std::vector<cv::Vec4i> &lines)
+{
+    const auto n = lines.size();
+    std::vector<int> visited(n, 0); // 初始化visited数组为0
+    int component_id = 1;
+    std::stack<int> s;
+    s.push(0);
+
+    while (!s.empty())
+    {
+        // // 如果栈为空，检查是否还有未访问的节点
+        // if (s.empty())
+        // {
+        //     bool found = false;
+        //     for (int i = 0; i < n; ++i)
+        //     {
+        //         if (visited[i] == 0)
+        //         {
+        //             s.push(i);
+        //             found = true;
+        //             break;
+        //         }
+        //     }
+        //     if (!found)
+        //         break;      // 所有节点都已访问，退出循环
+        //     component_id++; // 新的连通分量id自增
+        // }
+
+        const auto v = s.top();
+        s.pop();
+
+        // 如果该顶点已经访问过，跳过
+        if (visited[v] != 0)
+            continue;
+
+        // 标记当前顶点为已访问
+        visited[v] = component_id;
+
+        bool isolated = true;
+        for (int j = 0; j < n; ++j)
+        {
+            if (lines[v][j] != 0)
+            {
+                // 如果找到非0元素，则该顶点不是孤立的
+                isolated = false;
+                if (visited[j] == 0)
+                { // 如果邻接顶点未被访问
+                    s.push(j);
+                }
+            }
+        }
+
+        // 如果是孤立的顶点，则component_id需要自增以准备下一个连通分量
+        if (isolated)
+            component_id++;
+    }
+
+    // 输出每个节点所属的连通分量
+    std::println("Node : Component ID");
+    for (int i = 0; i < n; ++i)
+    {
+        std::println("{} : {}", i, visited[i]);
+    }
+}
+
+void tables_recognise(const Args &args)
+{
+    for (const auto &image_path : args.images)
+    {
+        auto mat = cv::imread(image_path, cv::IMREAD_GRAYSCALE);
+        auto blurred = cv::Mat(mat.size(), CV_8UC1);
+        blurred = cv::Scalar(255);
+        auto edges = cv::Mat(mat.size(), CV_8UC1);
+        edges = cv::Scalar(255);
+        auto lines = cv::Mat(mat.size(), CV_8UC1);
+        lines = cv::Scalar(255);
+        std::vector<cv::Vec4i> lines_vector;
+
+        cv::GaussianBlur(mat, blurred, cv::Size(5, 5), 0);
+        cv::Canny(blurred, edges, 150, 200);
+        cv::HoughLinesP(edges, lines_vector, 1, CV_PI / 180, 100, 10, 2);
+        lines = cv::Scalar(255, 255, 255);
+
+        for (int i = 0; i < lines_vector.size(); i++)
+        {
+            cv::Vec4i l = lines_vector[i];
+            const auto x0 = l[0], y0 = l[1], x1 = l[2], y1 = l[3];
+            if (x0 != x1 && y0 != y1)
+            {
+                continue;
+            }
+            cv::line(lines, cv::Point(x0, y0), cv::Point(x1, y1), cv::Scalar(0, 0, 0), 1, cv::LINE_AA);
+        }
+
+        cv::imwrite(std::format("{}.blur.png", std::filesystem::path(image_path).stem().string()), blurred);
+        cv::imwrite(std::format("{}.edges.png", std::filesystem::path(image_path).stem().string()), edges);
+        cv::imwrite(std::format("{}.lines.png", std::filesystem::path(image_path).stem().string()), lines);
+    }
+}
+
 int main(int argc, char **argv)
 {
     const auto args = Args::from_args(argc, argv);
     args.print();
 
     ocr_recognise(args, char_callback);
+    tables_recognise(args);
 
     return 0;
 }

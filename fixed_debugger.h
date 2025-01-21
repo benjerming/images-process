@@ -124,13 +124,13 @@ namespace fixed_debugger
         {
             println("{} bbox: {}", __func__, ch.bbox.to_string());
             putChineseText(ch, CV_COLOR_BLACK);
-            cv::rectangle(m_bitmap, cv::Point(ch.bbox.left, ch.bbox.top), cv::Point(ch.bbox.right, ch.bbox.bottom), CV_COLOR_RED, 1, cv::LINE_AA, 0);
+            cv::rectangle(m_bitmap, cv::Point(ch.bbox.left, ch.bbox.top), cv::Point(ch.bbox.right, ch.bbox.bottom), CV_COLOR_RED, 1, cv::LINE_4, 0);
         }
 
         void flush_word(const Word &word)
         {
             println("{} bbox: {}", __func__, word.bbox.to_string());
-            cv::rectangle(m_bitmap, cv::Point(word.bbox.left, word.bbox.top), cv::Point(word.bbox.right, word.bbox.bottom), CV_COLOR_GREEN, 1, cv::LINE_AA, 0);
+            cv::rectangle(m_bitmap, cv::Point(word.bbox.left, word.bbox.top), cv::Point(word.bbox.right, word.bbox.bottom), CV_COLOR_GREEN, 2, cv::LINE_8, 0);
             for (const auto &[char_bbox, ch] : word.chars)
             {
                 flush_char(ch);
@@ -140,7 +140,7 @@ namespace fixed_debugger
         void flush_line(const Line &line)
         {
             println("{} bbox: {}", __func__, line.bbox.to_string());
-            cv::rectangle(m_bitmap, cv::Point(line.bbox.left, line.bbox.top), cv::Point(line.bbox.right, line.bbox.bottom), CV_COLOR_YELLOW, 1, cv::LINE_AA, 0);
+            cv::rectangle(m_bitmap, cv::Point(line.bbox.left, line.bbox.top), cv::Point(line.bbox.right, line.bbox.bottom), CV_COLOR_YELLOW, 2, cv::LINE_AA, 0);
             for (const auto &[word_bbox, word] : line.words)
             {
                 flush_word(word);
