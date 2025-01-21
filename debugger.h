@@ -93,26 +93,26 @@ public:
     {
         int baseline = 0;
         m_ft2->getTextSize(text, rect.height(), -1, &baseline);
-        m_ft2->putText(m_bitmap, text, cv::Point(rect.left, rect.top + baseline), rect.height(), color, -1, cv::LINE_AA, false);
+        m_ft2->putText(m_bitmap, text, cv::Point(rect.x0, rect.y0 + baseline), rect.height(), color, -1, cv::LINE_AA, false);
     }
 
     void flush()
     {
         for (const auto &line_bbox : m_line_bboxes)
         {
-            println("line bbox: {}", line_bbox.to_string());
-            cv::rectangle(m_bitmap, cv::Point(line_bbox.left, line_bbox.top), cv::Point(line_bbox.right, line_bbox.bottom), CV_COLOR_YELLOW, 2, cv::LINE_AA, 0);
+            // println("line bbox: {}", line_bbox.to_string());
+            cv::rectangle(m_bitmap, cv::Point(line_bbox.x0, line_bbox.y0), cv::Point(line_bbox.x1, line_bbox.y1), CV_COLOR_YELLOW, 2, cv::LINE_AA, 0);
         }
         for (const auto &word_bbox : m_word_bboxes)
         {
-            println("word bbox: {}", word_bbox.to_string());
-            cv::rectangle(m_bitmap, cv::Point(word_bbox.left, word_bbox.top), cv::Point(word_bbox.right, word_bbox.bottom), CV_COLOR_GREEN, 2, cv::LINE_8, 0);
+            // println("word bbox: {}", word_bbox.to_string());
+            cv::rectangle(m_bitmap, cv::Point(word_bbox.x0, word_bbox.y0), cv::Point(word_bbox.x1, word_bbox.y1), CV_COLOR_GREEN, 2, cv::LINE_8, 0);
         }
         for (const auto &char_info : m_chars)
         {
-            println("char bbox: {}", char_info.bbox.to_string());
+            // println("char bbox: {}", char_info.bbox.to_string());
             putChineseText(char_info.text, char_info.bbox, CV_COLOR_BLACK);
-            cv::rectangle(m_bitmap, cv::Point(char_info.bbox.left, char_info.bbox.top), cv::Point(char_info.bbox.right, char_info.bbox.bottom), CV_COLOR_RED, 1, cv::LINE_4, 0);
+            cv::rectangle(m_bitmap, cv::Point(char_info.bbox.x0, char_info.bbox.y0), cv::Point(char_info.bbox.x1, char_info.bbox.y1), CV_COLOR_RED, 1, cv::LINE_4, 0);
         }
         m_line_bboxes.clear();
         m_word_bboxes.clear();

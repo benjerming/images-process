@@ -93,8 +93,8 @@ namespace fixed_debugger
         Rect fit_line_bbox(const Rect &line_bbox, const Rect &bbox)
         {
             Rect fit_bbox = bbox;
-            fit_bbox.top = line_bbox.top;
-            fit_bbox.bottom = line_bbox.bottom;
+            fit_bbox.y0 = line_bbox.y0;
+            fit_bbox.y1 = line_bbox.y1;
             return fit_bbox;
         }
 
@@ -117,20 +117,20 @@ namespace fixed_debugger
         {
             int baseline = 0;
             m_ft2->getTextSize(ch.text, ch.bbox.height(), -1, &baseline);
-            m_ft2->putText(m_bitmap, ch.text, cv::Point(ch.bbox.left, ch.bbox.top + baseline), ch.bbox.height(), color, -1, cv::LINE_AA, false);
+            m_ft2->putText(m_bitmap, ch.text, cv::Point(ch.bbox.x0, ch.bbox.y0 + baseline), ch.bbox.height(), color, -1, cv::LINE_AA, false);
         }
 
         void flush_char(const Char &ch)
         {
-            println("{} bbox: {}", __func__, ch.bbox.to_string());
+            // println("{} bbox: {}", __func__, ch.bbox.to_string());
             putChineseText(ch, CV_COLOR_BLACK);
-            cv::rectangle(m_bitmap, cv::Point(ch.bbox.left, ch.bbox.top), cv::Point(ch.bbox.right, ch.bbox.bottom), CV_COLOR_RED, 1, cv::LINE_4, 0);
+            cv::rectangle(m_bitmap, cv::Point(ch.bbox.x0, ch.bbox.y0), cv::Point(ch.bbox.x1, ch.bbox.y1), CV_COLOR_RED, 1, cv::LINE_4, 0);
         }
 
         void flush_word(const Word &word)
         {
-            println("{} bbox: {}", __func__, word.bbox.to_string());
-            cv::rectangle(m_bitmap, cv::Point(word.bbox.left, word.bbox.top), cv::Point(word.bbox.right, word.bbox.bottom), CV_COLOR_GREEN, 2, cv::LINE_8, 0);
+            // println("{} bbox: {}", __func__, word.bbox.to_string());
+            cv::rectangle(m_bitmap, cv::Point(word.bbox.x0, word.bbox.y0), cv::Point(word.bbox.x1, word.bbox.y1), CV_COLOR_GREEN, 2, cv::LINE_8, 0);
             for (const auto &[char_bbox, ch] : word.chars)
             {
                 flush_char(ch);
@@ -139,8 +139,8 @@ namespace fixed_debugger
 
         void flush_line(const Line &line)
         {
-            println("{} bbox: {}", __func__, line.bbox.to_string());
-            cv::rectangle(m_bitmap, cv::Point(line.bbox.left, line.bbox.top), cv::Point(line.bbox.right, line.bbox.bottom), CV_COLOR_YELLOW, 2, cv::LINE_AA, 0);
+            // println("{} bbox: {}", __func__, line.bbox.to_string());
+            cv::rectangle(m_bitmap, cv::Point(line.bbox.x0, line.bbox.y0), cv::Point(line.bbox.x1, line.bbox.y1), CV_COLOR_YELLOW, 2, cv::LINE_AA, 0);
             for (const auto &[word_bbox, word] : line.words)
             {
                 flush_word(word);
