@@ -2,6 +2,7 @@
 #include "common.h"
 #include "debugger.h"
 #include "fixed_debugger.h"
+#include "fixed2_debugger.h"
 
 #include <print>
 
@@ -15,8 +16,10 @@ void ocr_recognise(const Args &args)
         std::println("{} ----------------------------------------------------------------------------", image_path);
         Debugger debugger(args);
         fixed_debugger::Debugger fixed_debugger(args);
+        fixed2_debugger::Debugger fixed2_debugger(args);
         debugger.set_image(image_path);
         fixed_debugger.set_image(image_path);
+        fixed2_debugger.set_image(image_path);
         auto api = std::make_unique<TessBaseAPI>();
         if (api->Init(args.tessdata.c_str(), args.lang.c_str()))
         {
@@ -108,6 +111,7 @@ void ocr_recognise(const Args &args)
 
                     debugger.on_char(char_bbox, std::string(text.get()), size);
                     fixed_debugger.on_char(line_bbox, word_bbox, char_bbox, std::string(text.get()), size);
+                    fixed2_debugger.on_char(line_bbox, word_bbox, char_bbox, std::string(text.get()), size);
                 }
 
                 res_it->Next(tesseract::RIL_SYMBOL);
