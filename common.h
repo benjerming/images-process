@@ -30,10 +30,155 @@ struct Rect
 
     bool intersects(const Rect &other) const
     {
-        return !(other.x0 > x1 ||
-                 other.x1 < x0 ||
-                 other.y0 > y1 ||
-                 other.y1 < y0);
+        return !(x0 >= other.x1 || x1 <= other.x0 || y0 >= other.y1 || y1 <= other.y0);
+    }
+
+    Rect intersect(const Rect &other) const
+    {
+        return *this & other;
+    }
+
+    enum Quadrant
+    {
+        Q1 = 1,
+        Q2 = 2,
+        Q3 = 4,
+        Q4 = 8,
+        Q12 = Q1 | Q2,
+        Q34 = Q3 | Q4,
+        Q14 = Q1 | Q4,
+        Q23 = Q2 | Q3,
+        TopRight = Q1,
+        TopLeft = Q2,
+        BottomLeft = Q3,
+        BottomRight = Q4,
+        Top = Q12,
+        Bottom = Q34,
+        Left = Q23,
+        Right = Q14,
+    };
+
+    static constexpr auto minx = std::numeric_limits<decltype(x0)>::min();
+    static constexpr auto miny = std::numeric_limits<decltype(y0)>::min();
+    static constexpr auto maxx = std::numeric_limits<decltype(x1)>::max();
+    static constexpr auto maxy = std::numeric_limits<decltype(y1)>::max();
+
+    // 以指定点为原点，返回自身与指定象限的交集
+    Rect clip(const Point &origin, Quadrant quadrant) const
+    {
+
+        switch (quadrant)
+        {
+        case Q1:
+            return *this & Rect{origin.x, miny, maxx, origin.y};
+        case Q2:
+            return *this & Rect{minx, miny, origin.x, origin.y};
+        case Q3:
+            return *this & Rect{minx, origin.y, origin.x, maxy};
+        case Q4:
+            return *this & Rect{origin.x, origin.y, maxx, maxy};
+        default:
+            throw std::invalid_argument("Invalid quadrant");
+        }
+    }
+
+    Rect clip_right(decltype(x0) minx) const
+    {
+        return {std::max(minx, x0), y0, x1, y1};
+    }
+
+    Rect clip_left(decltype(x1) maxx) const
+    {
+        return {x0, y0, std::min(maxx, x1), y1};
+    }
+
+    Rect clip_bottom(decltype(y0) miny) const
+    {
+        return {x0, std::max(miny, y0), x1, y1};
+    }
+
+    Rect clip_top(decltype(y1) maxy) const
+    {
+        return {x0, y0, x1, std::min(maxy, y1)};
+    }
+
+    Rect clip_y(decltype(y0) miny, decltype(y1) maxy) const
+    {
+        return {x0, std::max(miny, y0), x1, std::min(maxy, y1)};
+    }
+
+    Rect clip_x(decltype(x0) minx, decltype(x1) maxx) const
+    {
+        return {std::max(minx, x0), y0, std::min(maxx, x1), y1};
+    }
+
+    // 以指定线为竖线，返回自身与指定象限的交集
+    Rect clip_x(decltype(x0) x, Quadrant quadrant) const
+    {
+        switch (quadrant)
+        {
+        case Q14:
+            return *this & Rect{x, miny, maxx, maxy};
+        case Q23:
+            return *this & Rect{minx, miny, x, maxy};
+        default:
+            throw std::invalid_argument("Invalid quadrant");
+        }
+    }
+
+    // 以指定线为横线，返回自身与指定象限的交集
+    Rect clip_y(decltype(y0) y, Quadrant quadrant) const
+    {
+        switch (quadrant)
+        {
+        case Q12:
+            return *this & Rect{minx, miny, maxx, y};
+        case Q34:
+            return *this & Rect{minx, y, maxx, maxy};
+        default:
+            throw std::invalid_argument("Invalid quadrant");
+        }
+    }
+
+    // 判断是否与另一个矩形相邻
+    bool adjacent(const Rect &other) const
+    {
+        return x0 == other.x1 || x1 == other.x0 || y0 == other.y1 || y1 == other.y0;
+    }
+
+    bool nearby(const Rect &other, int delta) const
+    {
+        return !(x0 >= other.x1 + delta || x1 <= other.x0 - delta || y0 >= other.y1 + delta || y1 <= other.y0 - delta);
+    }
+
+    bool at_left_of(const Rect &other) const
+    {
+        return x1 <= other.x0;
+    }
+
+    bool at_right_of(const Rect &other) const
+    {
+        return x0 >= other.x1;
+    }
+
+    bool at_top_of(const Rect &other) const
+    {
+        return y1 <= other.y0;
+    }
+
+    bool at_bottom_of(const Rect &other) const
+    {
+        return y0 >= other.y1;
+    }
+
+    bool contains(const Rect &other) const
+    {
+        return contains(other.p0()) && contains(other.p1());
+    }
+
+    bool contains(const Point &p) const
+    {
+        return p.x >= x0 && p.x <= x1 && p.y >= y0 && p.y <= y1;
     }
 
     Rect move(const int &other) const
