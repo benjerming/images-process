@@ -38,11 +38,11 @@ struct Args
         options.allow_unrecognised_options();
 
         auto opts_adder = options.add_options();
-        opts_adder("i,images", "Image paths", cxxopts::value<std::vector<std::string>>());
-        opts_adder("t,tessdata", "Tessdata path", cxxopts::value<std::string>()->default_value(default_tessdata));
-        opts_adder("l,lang", "Language", cxxopts::value<std::string>()->default_value(default_lang));
-        opts_adder("f,font", "Font path", cxxopts::value<std::string>()->default_value(default_font));
         opts_adder("c,confidence", "Confidence", cxxopts::value<int>()->default_value(std::to_string(default_confidence)));
+        opts_adder("i,images", "Image paths", cxxopts::value<std::vector<std::string>>());
+        opts_adder("l,lang", "Language", cxxopts::value<std::string>()->default_value(default_lang));
+        opts_adder("t,tessdata", "Tessdata path", cxxopts::value<std::string>()->default_value(default_tessdata));
+        opts_adder("f,font", "Font path", cxxopts::value<std::string>()->default_value(default_font));
 
         const auto result = options.parse(argc, argv);
 
