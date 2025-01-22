@@ -224,7 +224,7 @@ void tables_recognise(const Args &args)
 
 int main(int argc, char **argv)
 {
-    const auto args = Args::from_args(argc, argv);
+    const auto args = Args::from(argc, argv);
     args.print();
 
     ocr_recognise(args);

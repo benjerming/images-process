@@ -20,40 +20,38 @@ struct Args
     std::string tessdata;
     std::string font;
 
-    void print() const
+    void print(FILE *stream = stdout) const
     {
         for (const auto &[i, image] : std::ranges::views::enumerate(images))
         {
-            std::println("image[{}]: {}", i, image);
+            std::println(stream, "image[{}]: {}", i, image);
         }
-        std::println("confidence: {}", confidence);
-        std::println("lang: {}", lang);
-        std::println("tessdata: {}", tessdata);
-        std::println("font: {}", font);
+        std::println(stream, "confidence: {}", confidence);
+        std::println(stream, "lang: {}", lang);
+        std::println(stream, "tessdata: {}", tessdata);
+        std::println(stream, "font: {}", font);
     }
 
-    static Args from_args(int argc, char **argv)
+    static Args from(int argc, char **argv)
     {
         cxxopts::Options options("main", "Tesseract OCR");
         options.allow_unrecognised_options();
-        auto opts_adder = options.add_options();
-        Args args;
-        opts_adder("i,images", "Image paths", cxxopts::value<std::vector<std::string>>());
 
+        auto opts_adder = options.add_options();
+        opts_adder("i,images", "Image paths", cxxopts::value<std::vector<std::string>>());
         opts_adder("t,tessdata", "Tessdata path", cxxopts::value<std::string>()->default_value(default_tessdata));
         opts_adder("l,lang", "Language", cxxopts::value<std::string>()->default_value(default_lang));
-
         opts_adder("f,font", "Font path", cxxopts::value<std::string>()->default_value(default_font));
         opts_adder("c,confidence", "Confidence", cxxopts::value<int>()->default_value(std::to_string(default_confidence)));
 
         const auto result = options.parse(argc, argv);
 
-        args.tessdata = result["tessdata"].as<std::string>();
-        args.lang = result["lang"].as<std::string>();
-        args.images = result["images"].as<std::vector<std::string>>();
-        args.confidence = result["confidence"].as<int>();
-        args.font = result["font"].as<std::string>();
-
-        return args;
+        return {
+            result["confidence"].as<int>(),
+            result["images"].as<std::vector<std::string>>(),
+            result["lang"].as<std::string>(),
+            result["tessdata"].as<std::string>(),
+            result["font"].as<std::string>(),
+        };
     }
 };
