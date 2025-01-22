@@ -7,7 +7,7 @@
 #include "fixed_debugger.h"
 #include "fixed2_debugger.h"
 
-#include <tesseract/capi.h>
+#include <tesseract/baseapi.h>
 
 class Recognise
 {
@@ -23,7 +23,7 @@ public:
             debugger.set_image(image_path);
             fixed_debugger.set_image(image_path);
             fixed2_debugger.set_image(image_path);
-            auto api = std::make_unique<TessBaseAPI>();
+            auto api = std::make_shared<tesseract::TessBaseAPI>();
             if (api->Init(args.tessdata.c_str(), args.lang.c_str()))
             {
                 std::println(stderr, "Could not initialize tesseract.");

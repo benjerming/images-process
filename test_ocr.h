@@ -4,15 +4,12 @@
 #include <string>
 
 #include <stdio.h>
-#include <tesseract/capi.h>
+#include <tesseract/baseapi.h>
 #include <leptonica/allheaders.h>
 
 static int ocr(const std::string &image_path, const std::string &tessdata, const std::string &lang)
 {
-    auto api = std::shared_ptr<TessBaseAPI>(
-        TessBaseAPICreate(), 
-        [](TessBaseAPI *p) { TessBaseAPIDelete(p); }
-    );
+    auto api = std::make_shared<tesseract::TessBaseAPI>();
     if (api->Init(tessdata.c_str(), lang.c_str()))
     {
         fprintf(stderr, "Could not initialize tesseract.\n");
