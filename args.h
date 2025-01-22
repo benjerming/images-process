@@ -7,9 +7,8 @@
 #include <cxxopts.hpp>
 
 #define default_confidence 90
-#define default_img "/home/atlas/PDF2Word_libs/build/Rect(71.69999694824219, 208.49996948242188, 528.9500122070312, 505.8499755859375)_py.png"
-#define default_lang "chi_sim"
-#define default_tessdata "/home/atlas/Downloads/tessdata"
+#define default_lang "chi_sim+eng"
+#define default_tessdata "/usr/share/tessdata"
 #define default_font "/usr/share/fonts/TTF/msyh.ttc"
 
 struct Args
@@ -34,17 +33,24 @@ struct Args
 
     static Args from(int argc, char **argv)
     {
-        cxxopts::Options options("main", "Tesseract OCR");
+        cxxopts::Options options(argv[0], "Tesseract OCR");
         options.allow_unrecognised_options();
 
         auto opts_adder = options.add_options();
         opts_adder("c,confidence", "Confidence", cxxopts::value<int>()->default_value(std::to_string(default_confidence)));
-        opts_adder("i,images", "Image paths", cxxopts::value<std::vector<std::string>>());
+        opts_adder("i,images", "Image paths, can be multiple");
         opts_adder("l,lang", "Language", cxxopts::value<std::string>()->default_value(default_lang));
         opts_adder("t,tessdata", "Tessdata path", cxxopts::value<std::string>()->default_value(default_tessdata));
         opts_adder("f,font", "Font path", cxxopts::value<std::string>()->default_value(default_font));
+        opts_adder("h,help", "Show help");
 
         const auto result = options.parse(argc, argv);
+
+        if (result["help"].as<bool>() || result["h"].as<bool>())
+        {
+            puts(options.help().c_str());
+            exit(0);
+        }
 
         return {
             result["confidence"].as<int>(),
