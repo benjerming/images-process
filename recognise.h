@@ -1,7 +1,12 @@
 #pragma once
 
 #include <print>
+#include <algorithm>
+#include <tuple>
+#include <vector>
+#include <unordered_set>
 
+#include "algo.h"
 #include "args.h"
 #include "debugger.h"
 #include "fixed_debugger.h"
@@ -223,5 +228,238 @@ public:
             cv::imwrite(std::format("{}.edges.png", std::filesystem::path(image_path).stem().string()), edges);
             cv::imwrite(std::format("{}.lines.png", std::filesystem::path(image_path).stem().string()), lines);
         }
+    }
+
+    static fixed2_debugger::Page texts_recognise(const std::string &image_path, const Args &args)
+    {
+        auto api = std::make_shared<tesseract::TessBaseAPI>();
+        if (api->Init(args.tessdata.c_str(), args.lang.c_str()))
+        {
+            std::println(stderr, "Could not initialize tesseract.");
+            return {};
+        }
+        auto image = std::shared_ptr<Pix>(pixRead(image_path.c_str()), [](Pix *p)
+                                          { pixDestroy(&p); });
+
+        // 获取图像的宽度和高度
+        l_int32 width, height, depth;
+        if (pixGetDimensions(image.get(), &width, &height, &depth))
+        {
+            std::println(stderr, "Could not get image dimensions.");
+            return {};
+        }
+        std::println("width: {}, height: {}, depth: {}", width, height, depth);
+
+        // 获取图像分辨率
+        l_int32 xres, yres;
+        if (pixGetResolution(image.get(), &xres, &yres))
+        {
+            std::println(stderr, "Could not get image resolution.");
+            return {};
+        }
+        std::println("xres: {}, yres: {}", xres, yres);
+
+        api->SetImage(image.get());
+
+        // 设置图像分辨率
+        l_int32 xres_new = 300, yres_new = 300;
+        if (pixSetResolution(image.get(), xres_new, yres_new))
+        {
+            std::println(stderr, "Could not set image resolution.");
+            return {};
+        }
+        std::println("xres: {} -> {}, yres: {} -> {}", xres, xres_new, yres, yres_new);
+
+        if (pixGetDimensions(image.get(), &width, &height, &depth))
+        {
+            std::println(stderr, "Could not get image dimensions.");
+            return {};
+        }
+        std::println("width: {}, height: {}, depth: {}", width, height, depth);
+
+        if (api->Recognize(nullptr))
+        {
+            std::println(stderr, "Recognize failed");
+            return {};
+        }
+
+        auto res_it = std::shared_ptr<tesseract::ResultIterator>(api->GetIterator());
+
+        fixed2_debugger::Page page;
+
+        while (!res_it->Empty(tesseract::RIL_TEXTLINE))
+        {
+            if (res_it->Empty(tesseract::RIL_WORD))
+            {
+                res_it->Next(tesseract::RIL_WORD);
+                continue;
+            }
+
+            Rect line_bbox, word_bbox;
+            int line_conf, word_conf;
+            res_it->BoundingBox(tesseract::RIL_TEXTLINE, &line_bbox.x0, &line_bbox.y0, &line_bbox.x1, &line_bbox.y1);
+            res_it->BoundingBox(tesseract::RIL_WORD, &word_bbox.x0, &word_bbox.y0, &word_bbox.x1, &word_bbox.y1);
+            line_conf = res_it->Confidence(tesseract::RIL_TEXTLINE);
+            word_conf = res_it->Confidence(tesseract::RIL_WORD);
+
+            do
+            {
+                Rect char_bbox;
+                res_it->BoundingBox(tesseract::RIL_SYMBOL, &char_bbox.x0, &char_bbox.y0, &char_bbox.x1, &char_bbox.y1);
+                auto conf = res_it->Confidence(tesseract::RIL_SYMBOL);
+                auto text = std::shared_ptr<char>(res_it->GetUTF8Text(tesseract::RIL_SYMBOL));
+                bool bold, italic, underline, monospace, serif, smallcaps;
+                int size, font_id;
+
+                auto font_name = res_it->WordFontAttributes(&bold, &italic, &underline, &monospace, &serif, &smallcaps, &size, &font_id);
+
+                page.append_char(line_bbox, word_bbox, char_bbox, std::string(text.get()), size);
+
+                res_it->Next(tesseract::RIL_SYMBOL);
+            } while (!res_it->Empty(tesseract::RIL_BLOCK) && !res_it->IsAtBeginningOf(tesseract::RIL_WORD));
+        }
+
+        return page;
+    }
+
+    static Rects segments_recognise(const std::string &image_path, const Args &args)
+    {
+        auto mat = cv::imread(image_path, cv::IMREAD_GRAYSCALE);
+        auto blurred = cv::Mat(mat.size(), CV_8UC1);
+        blurred = cv::Scalar(255);
+        auto edges = cv::Mat(mat.size(), CV_8UC1);
+        edges = cv::Scalar(255);
+        auto lines = cv::Mat(mat.size(), CV_8UC1);
+        lines = cv::Scalar(255);
+        std::vector<cv::Vec4i> lines_vector;
+
+        cv::GaussianBlur(mat, blurred, cv::Size(5, 5), 0);
+        cv::Canny(blurred, edges, 150, 200);
+        cv::HoughLinesP(edges, lines_vector, 1, CV_PI / 180, 100, 10, 2);
+        lines = cv::Scalar(255, 255, 255);
+
+        Rects segments;
+        segments.reserve(lines_vector.size());
+        for (int i = 0; i < lines_vector.size(); i++)
+        {
+            cv::Vec4i l = lines_vector[i];
+            const auto x0 = l[0], y0 = l[1], x1 = l[2], y1 = l[3];
+            if (x0 != x1 && y0 != y1)
+            {
+                continue;
+            }
+            const auto minx = std::min(x0, x1);
+            const auto maxx = std::max(x0, x1);
+            const auto miny = std::min(y0, y1);
+            const auto maxy = std::max(y0, y1);
+            cv::line(lines, cv::Point(minx, miny), cv::Point(maxx, maxy), cv::Scalar(0, 0, 0), 1, cv::LINE_AA);
+            segments.push_back({minx, miny, maxx, maxy});
+        }
+
+        cv::imwrite(std::format("{}.blur.png", std::filesystem::path(image_path).stem().string()), blurred);
+        cv::imwrite(std::format("{}.edges.png", std::filesystem::path(image_path).stem().string()), edges);
+        cv::imwrite(std::format("{}.lines.png", std::filesystem::path(image_path).stem().string()), lines);
+
+        return segments;
+    }
+
+    template <typename T>
+    static _Rect<T> BoundingBox(const _Rects<T> &segs)
+    {
+        auto bbox = segs.front();
+        for (const auto &seg : segs)
+        {
+            // do not use |, because seg is empty
+            bbox.x0 = std::min(bbox.x0, seg.x0);
+            bbox.y0 = std::min(bbox.y0, seg.y0);
+            bbox.x1 = std::max(bbox.x1, seg.x1);
+            bbox.y1 = std::max(bbox.y1, seg.y1);
+        }
+        return bbox;
+    }
+
+    // static bool is_noisy(const Rectsf32 &segs, const fixed2_debugger::Page &page)
+    // {
+    //     if (!std::ranges::any_of(segs, [](const Rectsf32 &seg)
+    //                              { return seg.is_horizontal(); }) ||
+    //         !std::ranges::any_of(segs, [](const Rectsf32 &seg)
+    //                              { return seg.is_vertical(); }))
+    //     {
+    //         return true;
+    //     }
+
+    //     Rectsf32 bbox = BoundingBox(segs);
+
+    //     for (const auto &line : page.m_lines)
+    //     {
+    //         if (bbox.contains(line.bbox))
+    //         {
+    //             return false;
+    //         }
+    //         for (const auto &word : line.words)
+    //         {
+    //             if (bbox.contains(word.bbox))
+    //             {
+    //                 return false;
+    //             }
+    //             // all segments in one word, this noise
+    //             if (word.bbox.contains(bbox))
+    //             {
+    //                 return true;
+    //             }
+    //             for (const auto &c : word.chars)
+    //             {
+    //                 // any segment in one char, this noise
+    //                 for (const auto &seg : segs)
+    //                 {
+    //                     if (c.bbox.contains(seg))
+    //                     {
+    //                         return true;
+    //                     }
+    //                 }
+    //             }
+    //         }
+    //     }
+    //     return false;
+    // }
+
+    static Rects filter_segments(const Rects &segments, const fixed2_debugger::Page &page, const std::string &image_path = "")
+    {
+        cv::Mat mat;
+        if (!image_path.empty())
+        {
+            mat = cv::imread(image_path, cv::IMREAD_COLOR);
+        }
+
+        auto segs = std::ranges::views::transform(segments, [](const Rect &seg)
+                                                  { return Rectf32::from(seg); }) |
+                    std::ranges::to<Rectsf32>();
+
+        auto groups = algo::Algo::group_by_connectivity(segs);
+
+        for (const auto &group : groups)
+        {
+            if (group.size() == 1)
+            {
+                continue;
+            }
+
+            const auto bbox = Rectf32::from(BoundingBox(group)).expand(0.5f).to_cv_rect();
+            cv::rectangle(mat, bbox, cv::Scalar(0, 0, 0xff), 3);
+
+            if (!image_path.empty())
+            {
+                cv::imwrite(std::format("{}.grouped_segments.png", std::filesystem::path(image_path).stem().string()), mat);
+            }
+
+            continue;
+        }
+
+        if (!image_path.empty())
+        {
+            cv::imwrite(std::format("{}.grouped_segments.png", std::filesystem::path(image_path).stem().string()), mat);
+        }
+
+        return segments;
     }
 };
