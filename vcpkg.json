@@ -4,6 +4,7 @@
     "dependencies": [
         "freetype",
         "tesseract",
-        "cxxopts"
+        "cxxopts",
+        "gtest"
     ]
 }
